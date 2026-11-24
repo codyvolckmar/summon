@@ -31,7 +31,7 @@ Piping a script into a shell gives it root. Read [summon.sh](summon.sh) first; i
 
 ## Models
 
-**New:** OBLITERATUS's abliterated models, up to the 748B DeepSeek V4.1 Flash, set up correctly on llama.cpp. See [OBLITERATUS.md](OBLITERATUS.md).
+**New:** four new models — Bonsai 2.5 (ternary + MTP), Granite 4.2 30B (IBM reasoning), DaisyRose 27B (RL-tuned agents) and Inkling 2 Mini (the first open looped transformer, 1M context). Plus OBLITERATUS's abliterated models, up to the 748B DeepSeek V4.1 Flash — see [OBLITERATUS.md](OBLITERATUS.md).
 
 | Model | Engine | 24 GB (RTX 3090/4090) | 48 GB (RTX A6000) |
 |---|---|---|---|
@@ -41,19 +41,23 @@ Piping a script into a shell gives it root. Read [summon.sh](summon.sh) first; i
 | **Ornith 1.5 9B**: fast and light (vendor benchmarks) | llama.cpp | 256K, 8-bit weights | 256K, 8-bit weights |
 | **ThinkingCap Qwen3.8 27B**: Qwen3.8 27B that thinks ~37% less (vendor: -0.86 pts), built-in MTP head. PolyForm Small Business licence | llama.cpp | 128K, IQ4_XS | 128K, 8-bit weights |
 | **Ternary Bonsai 2 27B**: Qwen3.8 27B in ternary weights, 7.6 GB (vendor: 98% of FP16 across 14 benchmarks). Runs on 16 GB cards at 128K | llama.cpp | 256K (q8_0 cache) | 256K (f16 cache) |
+| **Ternary Bonsai 2.5 27B**: the agentic release — same ternary weights + an in-file MTP head (vendor: FP16-level tool calling, 1.5–1.8x faster decode). Stock llama.cpp b11556+ | llama.cpp | 128K | 256K |
+| **Granite 4.2 30B**: IBM's dense 30B reasoning model (vendor: SWE-bench Verified 57, AIME25 89). Heavy KV — 128K wants a q8_0 cache | llama.cpp | 96K (Q3_K_M, q8_0 cache) | 128K, 8-bit weights |
+| **DaisyRose 27B**: Qwen3.8-27B + RL-only tuning on long-horizon agent tasks (vendor: Terminal-Bench 4.1 5.6 → 12.0), in-file MTP layer | llama.cpp | 128K (Q4_K_M, q8_0 cache) | 256K, 8-bit weights |
+| **Inkling 2 Mini**: Thinking Machines' looped MoE, 26B / 3.4B active ×3 passes (vendor: SWE-bench Verified 79.2, TB 2.1 71.6 — top of its class), DSpark draft, 1M context. Sandboxed agents only | llama.cpp | 128K, IQ4_NL | up to 1M (q8_0 cache) |
 | **Qwen3.8 27B OBLITERATED**: uncensored Qwen3.8 (OBLITERATUS V3 abliteration; vendor MMLU -2.1pp), thinking off, served with Qwen3.8's own template so tool calls work | llama.cpp | 128K, Q4_K_M | 256K, 8-bit weights |
 | **Ornith 1.5 9B OBLITERATED**: uncensored Ornith 9B (vendor MMLU -4pp), thinking off | llama.cpp | 256K, 8-bit weights | 256K, 8-bit weights |
 | **feyospace-s1 OBLITERATED**: uncensored ~28B tuned for cybersecurity (pentests, CTFs, vuln research; vendor WMDP-Cyber 63.8%). Isolate its tools | llama.cpp | 128K, Q4_K_M | 256K, 8-bit weights |
 | **DeepSeek V4.1 Flash OBLITERATED**: uncensored 748B MoE (refusals reduced, not removed; MMLU 83.6%), 2.66-bit GGUF, 237 GB download. Needs a 96 GB card + ~130 GB free RAM, or ~160 GB of VRAM across cards | llama.cpp | not offered | not offered |
-| **Ollama models**: Qwen3.8 27B, Qwen3.6 35B-A3B, Gemma 4 31B, K2 Horizon, Muse Glimmer… | Ollama | Qwen3.8 27B at 64K | most at 128K, 8-bit |
+| **Ollama models**: Qwen3.8 27B, Qwen3.6 35B-A3B, Gemma 4 31B, K2 Horizon, Muse Glimmer… plus CPU-friendly picks (gpt-oss 20B, Qwen3 30B-A3B, Phi-4 14B, Qwen2.5 14B) for a RAM-only box | Ollama | Qwen3.8 27B at 64K | most at 128K, 8-bit |
 
 ## What should I rent?
 
 | GPU (VRAM) | Lium price per hour | What Summon runs on it |
 |---|---|---|
 | RTX 4060 Ti / 5060 Ti / 5070 Ti (16 GB) | $0.12–0.30 | Ternary Bonsai 2 27B at 128K (the only 27B that fits). 12 GB cards are not offered |
-| RTX 3090 / 4090 (24 GB) | $0.15–0.64 (3090), $0.35–0.55 (4090) | Ornith 1.5 9B at 128K, 8-bit. Ternary Bonsai 2 27B at 256K. ThinkingCap / Qwen3.8 27B at 128K, 4-bit. Ornith 35B with experts in RAM |
-| **L40 / L40S / RTX A6000 (48 GB)** | **$0.33 (L40), $0.38 (L40S)**, $0.42–0.67 (A6000) | **Best value.** Nanbeige 33B at 128K, 6-bit; ThinkingCap, Qwen3.8, Ornith 35B at 128K, 8-bit (~42 tok/s measured on an L40) |
+| RTX 3090 / 4090 (24 GB) | $0.15–0.64 (3090), $0.35–0.55 (4090) | Ornith 1.5 9B at 128K, 8-bit. Ternary Bonsai 2 27B at 256K, Bonsai 2.5 at 128K. ThinkingCap / Qwen3.8 / DaisyRose at 128K, 4-bit. Inkling 2 Mini at 128K, 4-bit. Ornith 35B with experts in RAM |
+| **L40 / L40S / RTX A6000 (48 GB)** | **$0.33 (L40), $0.38 (L40S)**, $0.42–0.67 (A6000) | **Best value.** Nanbeige 33B at 128K, 6-bit; ThinkingCap, Qwen3.8, Ornith 35B at 128K, 8-bit (~42 tok/s measured on an L40); Granite 4.2 30B, DaisyRose and Inkling 2 Mini at 128K–256K, 8-bit |
 | RTX PRO 6000 Blackwell (96 GB) | $1.60–1.99 | Every 27–35B model at 256K, 8-bit; Nanbeige up to 384K at 8-bit (512K at 3-bit). DeepSeek V4.1 Flash 748B too, if the pod has ~130 GB free RAM (experts in RAM) |
 
 Prices are [Lium](https://lium.io/pricing)'s live asks per GPU on 2026-11-20 and change with supply. Check any card first: `SUMMON_GPU="L40:46068" ./summon.sh --dry-run`.
@@ -64,7 +68,7 @@ Prices are [Lium](https://lium.io/pricing)'s live asks per GPU on 2026-11-20 and
 ./summon.sh [PORT]                          # the wizard: one menu with every model, sized to your card
 ./summon.sh --auto [PORT]                   # just go: the recommended model, no questions (or GO=1)
 ./summon.sh status                          # what's running, health, last speed, GPU memory
-./summon.sh nanbeige|qwen38pi|ornith35b|ornith9b|thinkingcap|qwen38obl|ornith9bobl|feyospace|deepseek41obl [PORT]   # skip the menu
+./summon.sh nanbeige|qwen38pi|ornith35b|ornith9b|thinkingcap|bonsai27b|bonsai25|granite42|daisyrose|inklingmini|qwen38obl|ornith9bobl|feyospace|deepseek41obl [PORT]   # skip the menu
 ONLY=1,3 ./summon.sh [PORT]                 # pull several Ollama models at once (rows in list order)
 ./summon.sh --dry-run [PORT]                # plan only, installs nothing
 ./summon.sh --connect                       # chat page, API key and client setup of the running server
@@ -89,7 +93,7 @@ When it's done, Summon prints:
 
 - **Only what fits.** The menu lists only models that fit this machine's VRAM (summed over all cards) and, for MoE models with experts in RAM, its free RAM. The rest are named in one line and left out.
 - **Context first, then precision.** Every token reads all the weights plus the part of the cache in use, so reserving a long context costs VRAM, not speed. Summon defaults to 128K with the most precise weights that still fit, and never uses a 4-bit cache.
-- **Never past training.** The context menu goes as far as the card allows, but never beyond what the model was trained for (read from its GGUF): 256K for the Qwen3.8, Ornith and feyospace models, 512K for Nanbeige, 1M for DeepSeek V4.1 Flash. `CTX=` above that is refused, because quality degrades quietly past it.
+- **Never past training.** The context menu goes as far as the card allows, but never beyond what the model was trained for (read from its GGUF or config): 256K for the Qwen3.8, Ornith and feyospace models, 512K for Nanbeige, 1M for DeepSeek V4.1 Flash and Inkling 2 Mini. `CTX=` above that is refused, because quality degrades quietly past it.
 - **Each model's own chat template** (llama.cpp `--jinja`), so native tool calls and thinking blocks work. That's why Nanbeige and Ornith run on llama.cpp: Ollama's builds of them ship without tool support.
 - **Every layer on the GPU** (`--fit off`): if it doesn't fit, it fails loudly instead of silently crawling on the CPU.
 - **Host-RAM prompt cache** so side requests (chat titles, subagents) don't evict a 200K-token conversation.
@@ -160,7 +164,7 @@ Regenerate them with `python3 tools/termshot.py` (drives the real script in a ps
 
 Young project, [MIT licensed](LICENSE). The Nanbeige llama.cpp setup has served real agent work on rented RTX A6000 pods, and ThinkingCap 27B has been run end to end on an L40 ([results](#tested-on-real-hardware)). The full wizard, the Windows/WSL path and the Ornith models have only been tested with dry runs and simulated GPUs so far. Ornith's benchmarks are the vendor's own. Issues and pull requests welcome.
 
-Models belong to their creators and carry their own licences: Nanbeige (Apache-2.0), Ornith (MIT), Ollama models as listed.
+Models belong to their creators and carry their own licences: Nanbeige (Apache-2.0), Ornith (MIT), Bonsai / Granite / DaisyRose / Inkling 2 Mini (Apache-2.0), Ollama models as listed. All four new models' benchmark numbers are the vendors' own; none of them has been run end to end on real hardware by Summon yet.
 
 ## Questions?
 
