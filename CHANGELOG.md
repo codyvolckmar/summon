@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **DaisyRose 27B** (`daisyrose`, RadixArk, Apache-2.0): Qwen3.8-27B post-trained with RL only on ~1,200 long-horizon agent tasks — vendor: Terminal-Bench 4.1 5.6 → 12.0, SWE Bench Pro v2 94.7. Official single-file GGUFs (Q8_0 down to Q2_K_XL); the GGUF header carries `nextn_predict_layers=1`, so the MTP layer ships in-file (draft wired, acceptance on the RL tune unmeasured). 256K context, 64 KB/token KV. Vision (mmproj) not loaded — text only.
+
 - **Granite 4.2 30B** (`granite42`, ibm-granite, Apache-2.0): dense 30B reasoning model, official IBM GGUFs (Q8_0 down to Q3_K_M). Vendor: SWE-bench Verified 57.0, AIME25 89.17, RULER 128K 81.38. Native 128K context (no rope scaling — the 512K extension is a separate artifact); heavy KV: 256 KB/token at f16, so 128K wants q8_0 cache or a 48 GB card.
 
 - **Ternary Bonsai 2.5 27B** (`bonsai25`, prism-ml, Apache-2.0): the agentic release of Bonsai 27B — same ternary Qwen3.8-27B weights (7.7 GB, `Q2_0-mtp`, stock llama.cpp b11556+) plus an in-file MTP head (vendor: 1.5-1.8x faster decode, FP16-level tool calling, SWE-bench Verified 75.6). 256K on a 24 GB card, 128K on 16 GB.

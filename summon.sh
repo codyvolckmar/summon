@@ -33,6 +33,7 @@
 #     Ternary Bonsai 2 27B [bonsai27b] Qwen3.8 27B in ternary weights (7.6 GB): 256K on 24 GB cards, 128K on 16 GB
 #     Ternary Bonsai 2.5 27B [bonsai25] the agentic release: same ternary weights + MTP head (7.7 GB)
 #     Granite 4.2 30B [granite42]      IBM dense 30B reasoning model, native 128K (heavy KV)
+#     DaisyRose 27B [daisyrose]        Qwen3.8 + RL-only agent tuning, official GGUFs, in-file MTP layer
 #     Uncensored (OBLITERATUS abliterations; never pre-selected), see OBLITERATUS.md:
 #       [qwen38obl] Qwen3.8 27B  [ornith9bobl] Ornith 1.5 9B  [feyospace] feyospace-s1 (cybersecurity ~28B)
 #       [deepseek41obl] DeepSeek V4.1 Flash 748B MoE (96 GB card + ~130 GB RAM, or ~160 GB VRAM across cards)
@@ -110,7 +111,7 @@ LC_OVERHEAD_MB=3584                             # CUDA context + compute buffers
 # Sysbox runtime can't bind into nested containers, so the first folder that mounts wins. (Named after the first
 # model for compatibility: earlier downloads are found again.)
 LC_DIRS=(/root/.nanbeige /var/lib/nanbeige /var/lib/docker/nanbeige-data)
-LC_MODEL_IDS=(nanbeige qwen38pi ornith35b ornith9b thinkingcap bonsai27b bonsai25 granite42 qwen38obl ornith9bobl feyospace deepseek41obl)   # order = menu order; first that reaches 128K is the default
+LC_MODEL_IDS=(nanbeige qwen38pi ornith35b ornith9b thinkingcap bonsai27b bonsai25 granite42 daisyrose qwen38obl ornith9bobl feyospace deepseek41obl)   # order = menu order; first that reaches 128K is the default
 lc_model() {   # $1 = model id: sets the LC_* settings of that model
   LC_LORA="" LC_EXTRA_BYTES=0   # optional LoRA adapter: "file|bytes|sha256|repo URL" (loaded with --lora)
   LC_FILE_SEP=-                 # weights file = $LC_FILE_PREFIX$LC_FILE_SEP$QUANT.gguf (mradermacher uses ".")
@@ -347,6 +348,38 @@ lc_model() {   # $1 = model id: sets the LC_* settings of that model
       LC_TEMP=1.0 LC_TOP_P=0.95 LC_TOP_K="" LC_KWARGS=""
       LC_REF_Q=Q4_K_M
       LC_SPEED_NOTE="Dense 30B: ~50 tok/s on an A100-class GPU. Thinks by default: allow 8K+ output."
+      ;;
+    daisyrose)
+      # DaisyRose-27B (RadixArk, Apache-2.0): Qwen3.8-27B post-trained with RL only (no SFT/distillation) on ~1,200
+      # long-horizon agent tasks (up to 1M-token sessions, 18 days on 144 H200s). Vendor, thinking mode at the base
+      # model's settings: Terminal-Bench 4.1 5.6 -> 12.0, TB 2.1 75.5, DeepSWE 46.2, SWE Pro v2 94.7, IFBench 82.4,
+      # GPQA-D 90.7. Drop-in Qwen3.8-27B replacement: same arch, tokenizer, chat template; multimodal (0.46B vision
+      # tower, served only via the separate mmproj file, which Summon doesn't load - text only). Official GGUFs
+      # (RadixArk/DaisyRose-27B-GGUF), single files. The GGUF header carries qwen35.nextn_predict_layers=1, so the
+      # base model's MTP layer ships inline (as in the OBLITERATED build) -> mtp-inline draft; DSpark (the card's
+      # SGLang drafter) is not available under llama.cpp. Qwen3.8 hybrid layout: 16 of 64 layers keep a cache,
+      # 4 KV heads x (256 K + 256 V) -> 64 KB/token at f16; 256K context. Card settings: temp 1.0, top_p 0.95,
+      # top_k 20, min_p 0, reasoning effort xhigh (template default); thinking is always on, leave max_tokens unset
+      # for hard problems.
+      LC_TITLE="DaisyRose 27B" LC_ALIAS=daisyrose-27b
+      LC_BLURB="Qwen3.8 + RL-only agent tuning: TB4.1 5.6->12.0 (vendor). Thinks"
+      LC_REPO=https://huggingface.co/RadixArk/DaisyRose-27B-GGUF/resolve/main
+      LC_FILE_PREFIX=DaisyRose-27B
+      LC_QUANTS=(   # official GGUFs (RadixArk), best first: "quant|bytes|sha256"
+        "Q8_0|29047084512|70ef8878246ac2c825541ca8416b21f860fa0aca6ebc7728b4e2746886a8e9c3"
+        "Q6_K|22083659232|b483e2369b376f63bb85ebc0ff7a27fc5fef7f2d1e3890a58951343d9670e3d8"
+        "Q5_K_M|19852199392|9f45b4cd3bc27a8347751c02bcc5439e94da9832c0deda293d718e86183ae8c1"
+        "Q4_K_XL|17685947872|80552cc72c462a6edafcd3a1a9c2a39ad3350b87df5066b7e23969a6c6f59073"
+        "Q4_K_M|16619308512|620ce36cbec7634d41e0edfdb60fd1508979bf15e2628dd891a38e97ddaf8148"
+        "Q3_K_XL|13223069152|ecaff5ae0d442c47356bfb12d175f6143bf7efb7a8f6178622c8ca8deda5849a"
+        "Q2_K_XL|9998554592|e7833b76788d99a0381287b319ab3f77f3ea899b70ebfbe44bc336a0f5e743cd"
+      )
+      LC_KV_F16=$(( 16 * 4 * 512 * 2 ))             # 65536 bytes/token
+      LC_TEMP=1.0 LC_TOP_P=0.95 LC_TOP_K=20 LC_KWARGS=""
+      LC_DRAFT_KIND=mtp-inline LC_DRAFT_KV_F16=$(( 4 * 512 * 2 ))
+      LC_DRAFT_TITLE="Qwen3.8's built-in MTP layer (in-file)" LC_DRAFT_GAIN="faster decoding (acceptance on this RL tune unmeasured)"
+      LC_REF_Q=Q4_K_M
+      LC_SPEED_NOTE="Thinks at xhigh effort and runs long (vendor): allow 16K+ output. Not measured on Summon."
       ;;
     qwen38obl)
       # Qwen3.8 27B OBLITERATED V3 (OBLITERATUS, Apache-2.0, 2026-08-19): abliterated Qwen3.8 27B, refusals and
@@ -899,7 +932,7 @@ while (( $# )); do
     --version) echo "summon $SUMMON_VERSION"; exit 0 ;;
     -h|--help) sed -n '2,/^set -e/p' "$0" | sed -e '/^set -e/d' -e 's/^# \{0,1\}//'; exit 0 ;;
     -y) YES=1 ;;
-    nanbeige|qwen38pi|ornith35b|ornith9b|thinkingcap|bonsai27b|bonsai25|granite42|qwen38obl|ornith9bobl|feyospace|deepseek41obl|ollama|llamacpp|llama.cpp) TARGET=$1 ;;
+    nanbeige|qwen38pi|ornith35b|ornith9b|thinkingcap|bonsai27b|bonsai25|granite42|daisyrose|qwen38obl|ornith9bobl|feyospace|deepseek41obl|ollama|llamacpp|llama.cpp) TARGET=$1 ;;
     -*) echo "Unknown option: $1"; exit 1 ;;
     *) [ -z "$PORT" ] || { echo "Only one port argument is accepted: '$1'"; exit 1; }; PORT=$1 ;;
   esac
@@ -971,7 +1004,7 @@ fi
 
 # --- Uninstall: one engine by name, or both (a llama.cpp model name means the whole llama.cpp engine) ---
 if [ "$ACTION" = uninstall ]; then
-  case "$TARGET" in nanbeige|qwen38pi|ornith35b|ornith9b|thinkingcap|bonsai27b|bonsai25|granite42|qwen38obl|ornith9bobl|feyospace|deepseek41obl|llama.cpp) TARGET=llamacpp ;; esac
+  case "$TARGET" in nanbeige|qwen38pi|ornith35b|ornith9b|thinkingcap|bonsai27b|bonsai25|granite42|daisyrose|qwen38obl|ornith9bobl|feyospace|deepseek41obl|llama.cpp) TARGET=llamacpp ;; esac
   DIRS=()
   if [ "$TARGET" != ollama ]; then for d in "${LC_DIRS[@]}"; do [ -d "$d" ] && DIRS+=("$d"); done; fi
   if [ "$TARGET" != llamacpp ]; then
@@ -1224,7 +1257,7 @@ HAS_WHIPTAIL=0; command -v whiptail >/dev/null && HAS_WHIPTAIL=1
 case "${ENGINE:-}" in llamacpp|llama.cpp) ENGINE=nanbeige ;; esac
 if [ -z "${ENGINE:-}" ] && { [ -n "${ONLY:-}" ] || [ -n "${FAST:-}" ]; }; then ENGINE=ollama; fi
 case "${ENGINE:-}" in
-  nanbeige|qwen38pi|ornith35b|ornith9b|thinkingcap|bonsai27b|bonsai25|granite42|qwen38obl|ornith9bobl|feyospace|deepseek41obl|ollama|"") ;;
+  nanbeige|qwen38pi|ornith35b|ornith9b|thinkingcap|bonsai27b|bonsai25|granite42|daisyrose|qwen38obl|ornith9bobl|feyospace|deepseek41obl|ollama|"") ;;
   *) echo "ENGINE must be one of: ${LC_MODEL_IDS[*]} ollama (got '$ENGINE')"; exit 1 ;;
 esac
 OL_PICK=""
