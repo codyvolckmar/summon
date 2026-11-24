@@ -34,6 +34,7 @@
 #     Ternary Bonsai 2.5 27B [bonsai25] the agentic release: same ternary weights + MTP head (7.7 GB)
 #     Granite 4.2 30B [granite42]      IBM dense 30B reasoning model, native 128K (heavy KV)
 #     DaisyRose 27B [daisyrose]        Qwen3.8 + RL-only agent tuning, official GGUFs, in-file MTP layer
+#     Inkling 2 Mini [inklingmini]     TML's looped MoE (26B/3.4B active): agentic top of class, 1M context
 #     Uncensored (OBLITERATUS abliterations; never pre-selected), see OBLITERATUS.md:
 #       [qwen38obl] Qwen3.8 27B  [ornith9bobl] Ornith 1.5 9B  [feyospace] feyospace-s1 (cybersecurity ~28B)
 #       [deepseek41obl] DeepSeek V4.1 Flash 748B MoE (96 GB card + ~130 GB RAM, or ~160 GB VRAM across cards)
@@ -111,7 +112,7 @@ LC_OVERHEAD_MB=3584                             # CUDA context + compute buffers
 # Sysbox runtime can't bind into nested containers, so the first folder that mounts wins. (Named after the first
 # model for compatibility: earlier downloads are found again.)
 LC_DIRS=(/root/.nanbeige /var/lib/nanbeige /var/lib/docker/nanbeige-data)
-LC_MODEL_IDS=(nanbeige qwen38pi ornith35b ornith9b thinkingcap bonsai27b bonsai25 granite42 daisyrose qwen38obl ornith9bobl feyospace deepseek41obl)   # order = menu order; first that reaches 128K is the default
+LC_MODEL_IDS=(nanbeige qwen38pi ornith35b ornith9b thinkingcap bonsai27b bonsai25 granite42 daisyrose inklingmini qwen38obl ornith9bobl feyospace deepseek41obl)   # order = menu order; first that reaches 128K is the default
 lc_model() {   # $1 = model id: sets the LC_* settings of that model
   LC_LORA="" LC_EXTRA_BYTES=0   # optional LoRA adapter: "file|bytes|sha256|repo URL" (loaded with --lora)
   LC_FILE_SEP=-                 # weights file = $LC_FILE_PREFIX$LC_FILE_SEP$QUANT.gguf (mradermacher uses ".")
@@ -380,6 +381,35 @@ lc_model() {   # $1 = model id: sets the LC_* settings of that model
       LC_DRAFT_TITLE="Qwen3.8's built-in MTP layer (in-file)" LC_DRAFT_GAIN="faster decoding (acceptance on this RL tune unmeasured)"
       LC_REF_Q=Q4_K_M
       LC_SPEED_NOTE="Thinks at xhigh effort and runs long (vendor): allow 16K+ output. Not measured on Summon."
+      ;;
+    inklingmini)
+      # Inkling 2 Mini (Thinking Machines Lab, Apache-2.0, 2026-11-20): the first open looped transformer. 24-layer
+      # MoE (8 of 128 experts active), middle 12 layers run 3x with shared weights -> 26.4B total, 3.4B active but
+      # ~5.4B effective per token (each extra pass adds ~1.0B). Hybrid attention: 20 local layers (1024 window, no
+      # per-token cache) + 4 global layers with 8 KV heads x 128 -> 16384 bytes/token at f16; sliding-window cache
+      # ~84 MB fixed. 1M context. Vendor (pi/Terminus/mini-swe-agent harnesses): SWE-bench Verified 79.2,
+      # TB 2.1 71.6, BrowseComp 79.0, ARC-AGI-2 49.3 - top of its weight class on most rows. Known limits (card):
+      # gets stuck in reasoning loops (cap output tokens and agent turns), can take destructive actions without
+      # confirmation - run it sandboxed. GGUFs by ggml-org (the llama.cpp team: stock b-builds support the arch);
+      # unsloth's UD quants are the popular alternative. DSpark drafter ships as a GGUF (unsloth); its draft KV is
+      # an estimate. Vision via mmproj, which Summon doesn't load (text only). Card gives no sampling defaults.
+      LC_TITLE="Inkling 2 Mini" LC_ALIAS=inkling-2-mini
+      LC_BLURB="TML looped MoE (26B, 3.4B active x3 passes): agentic top of class (vendor)"
+      LC_REPO=https://huggingface.co/ggml-org/Inkling-2-Mini-GGUF/resolve/main
+      LC_FILE_PREFIX=Inkling-2-Mini
+      LC_QUANTS=(   # ggml-org's GGUFs, best first: "quant|bytes|sha256"
+        "Q8_0|27820099264|d57542f8aea5d7639beba5fc4ae7f584754916f63ac5d5a69328c27f652f45da"
+        "IQ4_NL|17627940768|cbdf3fa9dc50a4124977980f37da4f1fa764b0cfe800d275cd43d26ce2a81af4"
+      )
+      LC_CTX_TRAIN=1048576
+      LC_KV_F16=$(( 4 * 8 * 256 * 2 ))             # 16384 bytes/token (4 global layers only; the 20 local
+                                                   # layers' 1024-token window cache is ~84 MB - planner ignores it)
+      LC_TEMP=1.0 LC_TOP_P=0.95 LC_TOP_K="" LC_KWARGS=""
+      LC_DRAFT_KIND=dspark LC_DRAFT_KV_F16=$(( 4 * 256 * 2 ))   # draft-head cache: estimate
+      LC_DRAFT="dspark-Inkling-2-Mini-Q8_0.gguf|503889952|3da00cf7c31bbe5662b3c0d373ecf782d74d32ef43990acc158ce60c2add72e0|https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main"
+      LC_DRAFT_TITLE="Inkling's DSpark drafter" LC_DRAFT_GAIN="faster decoding (draft KV estimated; acceptance unmeasured)"
+      LC_REF_Q=IQ4_NL
+      LC_SPEED_NOTE="Loops the middle layers 3x: compute per token is ~2x the active-param count. Cap output tokens (loops, vendor)."
       ;;
     qwen38obl)
       # Qwen3.8 27B OBLITERATED V3 (OBLITERATUS, Apache-2.0, 2026-08-19): abliterated Qwen3.8 27B, refusals and
@@ -932,7 +962,7 @@ while (( $# )); do
     --version) echo "summon $SUMMON_VERSION"; exit 0 ;;
     -h|--help) sed -n '2,/^set -e/p' "$0" | sed -e '/^set -e/d' -e 's/^# \{0,1\}//'; exit 0 ;;
     -y) YES=1 ;;
-    nanbeige|qwen38pi|ornith35b|ornith9b|thinkingcap|bonsai27b|bonsai25|granite42|daisyrose|qwen38obl|ornith9bobl|feyospace|deepseek41obl|ollama|llamacpp|llama.cpp) TARGET=$1 ;;
+    nanbeige|qwen38pi|ornith35b|ornith9b|thinkingcap|bonsai27b|bonsai25|granite42|daisyrose|inklingmini|qwen38obl|ornith9bobl|feyospace|deepseek41obl|ollama|llamacpp|llama.cpp) TARGET=$1 ;;
     -*) echo "Unknown option: $1"; exit 1 ;;
     *) [ -z "$PORT" ] || { echo "Only one port argument is accepted: '$1'"; exit 1; }; PORT=$1 ;;
   esac
@@ -1004,7 +1034,7 @@ fi
 
 # --- Uninstall: one engine by name, or both (a llama.cpp model name means the whole llama.cpp engine) ---
 if [ "$ACTION" = uninstall ]; then
-  case "$TARGET" in nanbeige|qwen38pi|ornith35b|ornith9b|thinkingcap|bonsai27b|bonsai25|granite42|daisyrose|qwen38obl|ornith9bobl|feyospace|deepseek41obl|llama.cpp) TARGET=llamacpp ;; esac
+  case "$TARGET" in nanbeige|qwen38pi|ornith35b|ornith9b|thinkingcap|bonsai27b|bonsai25|granite42|daisyrose|inklingmini|qwen38obl|ornith9bobl|feyospace|deepseek41obl|llama.cpp) TARGET=llamacpp ;; esac
   DIRS=()
   if [ "$TARGET" != ollama ]; then for d in "${LC_DIRS[@]}"; do [ -d "$d" ] && DIRS+=("$d"); done; fi
   if [ "$TARGET" != llamacpp ]; then
@@ -1257,7 +1287,7 @@ HAS_WHIPTAIL=0; command -v whiptail >/dev/null && HAS_WHIPTAIL=1
 case "${ENGINE:-}" in llamacpp|llama.cpp) ENGINE=nanbeige ;; esac
 if [ -z "${ENGINE:-}" ] && { [ -n "${ONLY:-}" ] || [ -n "${FAST:-}" ]; }; then ENGINE=ollama; fi
 case "${ENGINE:-}" in
-  nanbeige|qwen38pi|ornith35b|ornith9b|thinkingcap|bonsai27b|bonsai25|granite42|daisyrose|qwen38obl|ornith9bobl|feyospace|deepseek41obl|ollama|"") ;;
+  nanbeige|qwen38pi|ornith35b|ornith9b|thinkingcap|bonsai27b|bonsai25|granite42|daisyrose|inklingmini|qwen38obl|ornith9bobl|feyospace|deepseek41obl|ollama|"") ;;
   *) echo "ENGINE must be one of: ${LC_MODEL_IDS[*]} ollama (got '$ENGINE')"; exit 1 ;;
 esac
 OL_PICK=""
