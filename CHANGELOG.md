@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Four CPU-friendly models added to the Ollama menu** (fits a RAM-only box, e.g. 6-core Xeon + 27 GB RAM): gpt-oss 20B (rank 7, ~24 KB/token KV thanks to sliding-window attention — the fastest quality option on CPU), Qwen3 30B-A3B (rank 8, 3B active params), Phi-4 14B (rank 9) and Qwen2.5 14B (rank 10). Ranked below the GPU-first models so 24 GB+ cards keep their current recommendations.
+
 - **Ternary Bonsai 2 27B** (`bonsai27b`, prism-ml, Apache-2.0): Qwen3.8 27B in ternary weights, 7.6 GB. Uses the `Q2_0` file, which runs on stock llama.cpp (b11556+); the smaller `PQ2_0`/`PTQ1_0` files still need PrismML's fork. 256K on a 24 GB card, 128K on 16 GB. No MTP layer, so n-gram drafts only. Tested on an A100 80GB: install, tool-call test, 24/24 coherence, needle recall.
 - `tools/bench.py`: speed and coherence benchmark for any Summon server.
 - **Model menu shows each model's longest context** on this machine (`max 384K`), so contexts past 128K are visible before the context step.

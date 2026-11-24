@@ -484,6 +484,10 @@ OL_MODELS=(
   "-|hf.co/ukisai/Swift-1.5-Qwen3.8-27B-GGUF:Q8_0|hf.co/ukisai/Swift-1.5-Qwen3.8-27B-GGUF:Q4_K_M|64|0|TVR|Swift 1.5 Qwen3.8 27B|Qwen3.8 with 25-54% less thinking. Swift licence <=\$1M"
   "-|hf.co/mradermacher/Llama-3.1-8B-Lexi-Uncensored-V2-OBLITERATED-GGUF:Q8_0|hf.co/mradermacher/Llama-3.1-8B-Lexi-Uncensored-V2-OBLITERATED-GGUF:Q4_K_M|128|0|T--|Llama3.1 8B Lexi OBLITERATED|Uncensored Llama 3.1 8B (Lexi V2, abliterated). Older, small"
   "-|hf.co/mradermacher/qwen3-4b-structured-output-merged-stage-a-OBLITERATED-GGUF:Q8_0|hf.co/mradermacher/qwen3-4b-structured-output-merged-stage-a-OBLITERATED-GGUF:Q4_K_M|144|0|T-R|Qwen3 4B JSON OBLITERATED|Uncensored Qwen3 4B tuned for JSON output (stage-A checkpoint)"
+  "7|gpt-oss:20b|gpt-oss:20b|24|4|T-R|gpt-oss 20B|OpenAI open MoE (3.1B active): fast reasoning, strong tool use. Best CPU pick"
+  "8|qwen3:30b|qwen3:30b|96|0|T-R|Qwen3 30B-A3B|Qwen3 MoE (3B active), 256K window. Near-frontier quality, runs well on CPU"
+  "9|phi4:14b|phi4:14b|200|0|T--|Phi-4 14B|Microsoft: reasoning quality far above its size. Full attention, heavy KV"
+  "10|qwen2.5:14b-instruct|qwen2.5:14b-instruct|192|0|T--|Qwen2.5 14B|Older but proven all-rounder with tool calling"
 )
 # Hugging Face GGUF refs have no Ollama registry manifest: exact sizes in MiB from the HF file list (2026-11-17).
 declare -A HF_MB=(
