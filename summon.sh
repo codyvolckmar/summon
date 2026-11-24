@@ -31,6 +31,7 @@
 #     Ornith 1.5 9B [ornith9b]         fast and light: 256K with 8-bit weights on a 24 GB card
 #     ThinkingCap 27B [thinkingcap]    Qwen3.8 27B that thinks ~37% less, built-in MTP head (PolyForm Small Business)
 #     Ternary Bonsai 2 27B [bonsai27b] Qwen3.8 27B in ternary weights (7.6 GB): 256K on 24 GB cards, 128K on 16 GB
+#     Ternary Bonsai 2.5 27B [bonsai25] the agentic release: same ternary weights + MTP head (7.7 GB)
 #     Uncensored (OBLITERATUS abliterations; never pre-selected), see OBLITERATUS.md:
 #       [qwen38obl] Qwen3.8 27B  [ornith9bobl] Ornith 1.5 9B  [feyospace] feyospace-s1 (cybersecurity ~28B)
 #       [deepseek41obl] DeepSeek V4.1 Flash 748B MoE (96 GB card + ~130 GB RAM, or ~160 GB VRAM across cards)
@@ -108,7 +109,7 @@ LC_OVERHEAD_MB=3584                             # CUDA context + compute buffers
 # Sysbox runtime can't bind into nested containers, so the first folder that mounts wins. (Named after the first
 # model for compatibility: earlier downloads are found again.)
 LC_DIRS=(/root/.nanbeige /var/lib/nanbeige /var/lib/docker/nanbeige-data)
-LC_MODEL_IDS=(nanbeige qwen38pi ornith35b ornith9b thinkingcap bonsai27b qwen38obl ornith9bobl feyospace deepseek41obl)   # order = menu order; first that reaches 128K is the default
+LC_MODEL_IDS=(nanbeige qwen38pi ornith35b ornith9b thinkingcap bonsai27b bonsai25 qwen38obl ornith9bobl feyospace deepseek41obl)   # order = menu order; first that reaches 128K is the default
 lc_model() {   # $1 = model id: sets the LC_* settings of that model
   LC_LORA="" LC_EXTRA_BYTES=0   # optional LoRA adapter: "file|bytes|sha256|repo URL" (loaded with --lora)
   LC_FILE_SEP=-                 # weights file = $LC_FILE_PREFIX$LC_FILE_SEP$QUANT.gguf (mradermacher uses ".")
@@ -294,6 +295,31 @@ lc_model() {   # $1 = model id: sets the LC_* settings of that model
       LC_TEMP=1.0 LC_TOP_P=0.95 LC_TOP_K=20 LC_KWARGS=""
       LC_REF_Q=Q2_0
       LC_SPEED_NOTE="Measured on an A100 80GB: 66 tok/s decode, ~1,300 tok/s prefill. Thinks at xhigh effort: allow 16K+ output."
+      ;;
+    bonsai25)
+      # Ternary Bonsai 2.5 27B (prism-ml, Apache-2.0): the agentic release of the Bonsai 27B line, same Qwen3.8-27B
+      # hybrid architecture and ternary format as Bonsai 2 (1.76 bpw). Vendor: tool-calling avg 77.2 vs 77.7 FP16
+      # (tau2/tau3/BFCL v3+v4/AppWorld), SWE-bench Verified 75.6, Terminal-Bench 2.1 60.1, general avg 82.1 vs 84.3.
+      # Its MTP draft head (in-file, blk.64) gains 1.5-1.8x on NVIDIA GPUs. PTQ1_0/PQ2_0 need PrismML's llama.cpp
+      # fork (upstream review); Summon uses the Q2_0-mtp packing, which runs on stock llama.cpp >= b11556 (Hadamard
+      # runtime; older builds load it and output garbage). Read from the tree (2026-11-24): qwen35 layout like
+      # Bonsai 2 -> 64 layers, full attention every 4th, 4 KV heads x (256 K + 256 V) = 64 KB/token at f16; 262K ctx.
+      # Thinking defaults to xhigh effort (medium = shorter; low unsupported); enable_thinking false turns it off.
+      # Vision needs the separate mmproj file, which Summon doesn't load (text only). Card sampling: thinking mode
+      # temp 1.0, top_p 0.95, top_k 20 (llama.cpp's min_p 0.05 default left as-is, as for Bonsai 2).
+      LC_TITLE="Ternary Bonsai 2.5 27B" LC_ALIAS=bonsai-2.5-27b
+      LC_BLURB="Qwen3.8 27B ternary v2.5, agentic: 7.7 GB, MTP draft, FP16-level tool calling (vendor)"
+      LC_REPO=https://huggingface.co/prism-ml/Ternary-Bonsai-2.5-27B-GGUF/resolve/main
+      LC_FILE_PREFIX=Ternary-Bonsai-2.5-27B
+      LC_QUANTS=(   # prism-ml's stock-llama.cpp packing (MTP variant, draft head in-file): "quant|bytes|sha256"
+        "Q2_0-mtp|7912178944|b0f83de8481c3200c529aef5fb495dbfedf2a4a3f017f7a3ea0a69c67be1d306"
+      )
+      LC_KV_F16=$(( 16 * 4 * 512 * 2 ))             # 65536 bytes/token
+      LC_TEMP=1.0 LC_TOP_P=0.95 LC_TOP_K=20 LC_KWARGS=""
+      LC_DRAFT_KIND=mtp-inline LC_DRAFT_KV_F16=$(( 4 * 512 * 2 ))
+      LC_DRAFT_TITLE="Bonsai 2.5's built-in MTP head" LC_DRAFT_GAIN="1.5-1.8x faster decode on NVIDIA GPUs (vendor)"
+      LC_REF_Q=Q2_0-mtp
+      LC_SPEED_NOTE="Vendor: ~300 tok/s decode on H200/B200 with MTP. Thinks at xhigh effort: allow 16K+ output."
       ;;
     qwen38obl)
       # Qwen3.8 27B OBLITERATED V3 (OBLITERATUS, Apache-2.0, 2026-08-19): abliterated Qwen3.8 27B, refusals and
@@ -846,7 +872,7 @@ while (( $# )); do
     --version) echo "summon $SUMMON_VERSION"; exit 0 ;;
     -h|--help) sed -n '2,/^set -e/p' "$0" | sed -e '/^set -e/d' -e 's/^# \{0,1\}//'; exit 0 ;;
     -y) YES=1 ;;
-    nanbeige|qwen38pi|ornith35b|ornith9b|thinkingcap|bonsai27b|qwen38obl|ornith9bobl|feyospace|deepseek41obl|ollama|llamacpp|llama.cpp) TARGET=$1 ;;
+    nanbeige|qwen38pi|ornith35b|ornith9b|thinkingcap|bonsai27b|bonsai25|qwen38obl|ornith9bobl|feyospace|deepseek41obl|ollama|llamacpp|llama.cpp) TARGET=$1 ;;
     -*) echo "Unknown option: $1"; exit 1 ;;
     *) [ -z "$PORT" ] || { echo "Only one port argument is accepted: '$1'"; exit 1; }; PORT=$1 ;;
   esac
@@ -918,7 +944,7 @@ fi
 
 # --- Uninstall: one engine by name, or both (a llama.cpp model name means the whole llama.cpp engine) ---
 if [ "$ACTION" = uninstall ]; then
-  case "$TARGET" in nanbeige|qwen38pi|ornith35b|ornith9b|thinkingcap|bonsai27b|qwen38obl|ornith9bobl|feyospace|deepseek41obl|llama.cpp) TARGET=llamacpp ;; esac
+  case "$TARGET" in nanbeige|qwen38pi|ornith35b|ornith9b|thinkingcap|bonsai27b|bonsai25|qwen38obl|ornith9bobl|feyospace|deepseek41obl|llama.cpp) TARGET=llamacpp ;; esac
   DIRS=()
   if [ "$TARGET" != ollama ]; then for d in "${LC_DIRS[@]}"; do [ -d "$d" ] && DIRS+=("$d"); done; fi
   if [ "$TARGET" != llamacpp ]; then
@@ -1171,7 +1197,7 @@ HAS_WHIPTAIL=0; command -v whiptail >/dev/null && HAS_WHIPTAIL=1
 case "${ENGINE:-}" in llamacpp|llama.cpp) ENGINE=nanbeige ;; esac
 if [ -z "${ENGINE:-}" ] && { [ -n "${ONLY:-}" ] || [ -n "${FAST:-}" ]; }; then ENGINE=ollama; fi
 case "${ENGINE:-}" in
-  nanbeige|qwen38pi|ornith35b|ornith9b|thinkingcap|bonsai27b|qwen38obl|ornith9bobl|feyospace|deepseek41obl|ollama|"") ;;
+  nanbeige|qwen38pi|ornith35b|ornith9b|thinkingcap|bonsai27b|bonsai25|qwen38obl|ornith9bobl|feyospace|deepseek41obl|ollama|"") ;;
   *) echo "ENGINE must be one of: ${LC_MODEL_IDS[*]} ollama (got '$ENGINE')"; exit 1 ;;
 esac
 OL_PICK=""

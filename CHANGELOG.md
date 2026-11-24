@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Ternary Bonsai 2.5 27B** (`bonsai25`, prism-ml, Apache-2.0): the agentic release of Bonsai 27B — same ternary Qwen3.8-27B weights (7.7 GB, `Q2_0-mtp`, stock llama.cpp b11556+) plus an in-file MTP head (vendor: 1.5-1.8x faster decode, FP16-level tool calling, SWE-bench Verified 75.6). 256K on a 24 GB card, 128K on 16 GB.
+
 - **Four CPU-friendly models added to the Ollama menu** (fits a RAM-only box, e.g. 6-core Xeon + 27 GB RAM): gpt-oss 20B (rank 7, ~24 KB/token KV thanks to sliding-window attention — the fastest quality option on CPU), Qwen3 30B-A3B (rank 8, 3B active params), Phi-4 14B (rank 9) and Qwen2.5 14B (rank 10). Ranked below the GPU-first models so 24 GB+ cards keep their current recommendations.
 
 - **Ternary Bonsai 2 27B** (`bonsai27b`, prism-ml, Apache-2.0): Qwen3.8 27B in ternary weights, 7.6 GB. Uses the `Q2_0` file, which runs on stock llama.cpp (b11556+); the smaller `PQ2_0`/`PTQ1_0` files still need PrismML's fork. 256K on a 24 GB card, 128K on 16 GB. No MTP layer, so n-gram drafts only. Tested on an A100 80GB: install, tool-call test, 24/24 coherence, needle recall.
