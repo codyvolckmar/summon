@@ -32,6 +32,7 @@
 #     ThinkingCap 27B [thinkingcap]    Qwen3.8 27B that thinks ~37% less, built-in MTP head (PolyForm Small Business)
 #     Ternary Bonsai 2 27B [bonsai27b] Qwen3.8 27B in ternary weights (7.6 GB): 256K on 24 GB cards, 128K on 16 GB
 #     Ternary Bonsai 2.5 27B [bonsai25] the agentic release: same ternary weights + MTP head (7.7 GB)
+#     Granite 4.2 30B [granite42]      IBM dense 30B reasoning model, native 128K (heavy KV)
 #     Uncensored (OBLITERATUS abliterations; never pre-selected), see OBLITERATUS.md:
 #       [qwen38obl] Qwen3.8 27B  [ornith9bobl] Ornith 1.5 9B  [feyospace] feyospace-s1 (cybersecurity ~28B)
 #       [deepseek41obl] DeepSeek V4.1 Flash 748B MoE (96 GB card + ~130 GB RAM, or ~160 GB VRAM across cards)
@@ -109,7 +110,7 @@ LC_OVERHEAD_MB=3584                             # CUDA context + compute buffers
 # Sysbox runtime can't bind into nested containers, so the first folder that mounts wins. (Named after the first
 # model for compatibility: earlier downloads are found again.)
 LC_DIRS=(/root/.nanbeige /var/lib/nanbeige /var/lib/docker/nanbeige-data)
-LC_MODEL_IDS=(nanbeige qwen38pi ornith35b ornith9b thinkingcap bonsai27b bonsai25 qwen38obl ornith9bobl feyospace deepseek41obl)   # order = menu order; first that reaches 128K is the default
+LC_MODEL_IDS=(nanbeige qwen38pi ornith35b ornith9b thinkingcap bonsai27b bonsai25 granite42 qwen38obl ornith9bobl feyospace deepseek41obl)   # order = menu order; first that reaches 128K is the default
 lc_model() {   # $1 = model id: sets the LC_* settings of that model
   LC_LORA="" LC_EXTRA_BYTES=0   # optional LoRA adapter: "file|bytes|sha256|repo URL" (loaded with --lora)
   LC_FILE_SEP=-                 # weights file = $LC_FILE_PREFIX$LC_FILE_SEP$QUANT.gguf (mradermacher uses ".")
@@ -320,6 +321,32 @@ lc_model() {   # $1 = model id: sets the LC_* settings of that model
       LC_DRAFT_TITLE="Bonsai 2.5's built-in MTP head" LC_DRAFT_GAIN="1.5-1.8x faster decode on NVIDIA GPUs (vendor)"
       LC_REF_Q=Q2_0-mtp
       LC_SPEED_NOTE="Vendor: ~300 tok/s decode on H200/B200 with MTP. Thinks at xhigh effort: allow 16K+ output."
+      ;;
+    granite42)
+      # Granite-4.2-30B (ibm-granite, Apache-2.0): dense 30B reasoning model (built-in <think>...</think>), the
+      # flagship of the Granite 4.2 family. Vendor: SWE-bench Verified 57.0, AIME25 89.17, RULER 128K 81.38,
+      # tau3 62.0, BFCL v4 61.39. Official IBM GGUFs (ibm-granite/granite-4.2-30b-GGUF); file naming has no
+      # -00001-of-N splits below bf16, so every offered quant is one file. Card: temp 1.0, top_p 0.95 (required
+      # across all tasks/backends), no top_k. Thinking on by default (8192 max_new_tokens; enable_thinking false
+      # and low_effort via the template). Config (2026-11-24): 64 layers, 8 KV heads x 128 -> 262144 bytes/token
+      # at f16 (dense = heavy KV: 128K context alone is ~32 GB at f16, ~17 GB at q8_0); native 128K context, no
+      # rope scaling (the 512K "extension" is a separate artifact, not served here).
+      LC_TITLE="Granite 4.2 30B" LC_ALIAS=granite-4.2-30b
+      LC_BLURB="IBM dense 30B reasoning: SWE-bench V 57, AIME25 89. Apache-2.0"
+      LC_REPO=https://huggingface.co/ibm-granite/granite-4.2-30b-GGUF/resolve/main
+      LC_FILE_PREFIX=granite-4.2-30b
+      LC_QUANTS=(   # official GGUFs (ibm-granite), best first: "quant|bytes|sha256"
+        "Q8_0|31111705312|005b0933353e9ba219b26e2667705bdb8dbc74eb50e4a4e6cb70fca108710f81"
+        "Q6_K|24021365472|3e80cc9aa7e5613f4b2225f8813704cefefd2afdecf90295f6149a8621c644dd"
+        "Q5_K_M|20775957216|536c8245617f0f3a081cbe1877113e4b4058dcd55ffc03f12f3ef758b3731a80"
+        "Q4_K_M|17721455328|f299dace85d77ee0e24ca0b6720bd211b1f4cd1f65b9c0a2111e79692e29c9be"
+        "Q3_K_M|14133162720|7aad53fe80a9751d543ee6799d205a0a4f5d07e8d7f186b8753bdad7a12dc312"
+      )
+      LC_CTX_TRAIN=131072
+      LC_KV_F16=$(( 64 * 8 * 128 * 2 ))             # 262144 bytes/token
+      LC_TEMP=1.0 LC_TOP_P=0.95 LC_TOP_K="" LC_KWARGS=""
+      LC_REF_Q=Q4_K_M
+      LC_SPEED_NOTE="Dense 30B: ~50 tok/s on an A100-class GPU. Thinks by default: allow 8K+ output."
       ;;
     qwen38obl)
       # Qwen3.8 27B OBLITERATED V3 (OBLITERATUS, Apache-2.0, 2026-08-19): abliterated Qwen3.8 27B, refusals and
@@ -872,7 +899,7 @@ while (( $# )); do
     --version) echo "summon $SUMMON_VERSION"; exit 0 ;;
     -h|--help) sed -n '2,/^set -e/p' "$0" | sed -e '/^set -e/d' -e 's/^# \{0,1\}//'; exit 0 ;;
     -y) YES=1 ;;
-    nanbeige|qwen38pi|ornith35b|ornith9b|thinkingcap|bonsai27b|bonsai25|qwen38obl|ornith9bobl|feyospace|deepseek41obl|ollama|llamacpp|llama.cpp) TARGET=$1 ;;
+    nanbeige|qwen38pi|ornith35b|ornith9b|thinkingcap|bonsai27b|bonsai25|granite42|qwen38obl|ornith9bobl|feyospace|deepseek41obl|ollama|llamacpp|llama.cpp) TARGET=$1 ;;
     -*) echo "Unknown option: $1"; exit 1 ;;
     *) [ -z "$PORT" ] || { echo "Only one port argument is accepted: '$1'"; exit 1; }; PORT=$1 ;;
   esac
@@ -944,7 +971,7 @@ fi
 
 # --- Uninstall: one engine by name, or both (a llama.cpp model name means the whole llama.cpp engine) ---
 if [ "$ACTION" = uninstall ]; then
-  case "$TARGET" in nanbeige|qwen38pi|ornith35b|ornith9b|thinkingcap|bonsai27b|bonsai25|qwen38obl|ornith9bobl|feyospace|deepseek41obl|llama.cpp) TARGET=llamacpp ;; esac
+  case "$TARGET" in nanbeige|qwen38pi|ornith35b|ornith9b|thinkingcap|bonsai27b|bonsai25|granite42|qwen38obl|ornith9bobl|feyospace|deepseek41obl|llama.cpp) TARGET=llamacpp ;; esac
   DIRS=()
   if [ "$TARGET" != ollama ]; then for d in "${LC_DIRS[@]}"; do [ -d "$d" ] && DIRS+=("$d"); done; fi
   if [ "$TARGET" != llamacpp ]; then
@@ -1197,7 +1224,7 @@ HAS_WHIPTAIL=0; command -v whiptail >/dev/null && HAS_WHIPTAIL=1
 case "${ENGINE:-}" in llamacpp|llama.cpp) ENGINE=nanbeige ;; esac
 if [ -z "${ENGINE:-}" ] && { [ -n "${ONLY:-}" ] || [ -n "${FAST:-}" ]; }; then ENGINE=ollama; fi
 case "${ENGINE:-}" in
-  nanbeige|qwen38pi|ornith35b|ornith9b|thinkingcap|bonsai27b|bonsai25|qwen38obl|ornith9bobl|feyospace|deepseek41obl|ollama|"") ;;
+  nanbeige|qwen38pi|ornith35b|ornith9b|thinkingcap|bonsai27b|bonsai25|granite42|qwen38obl|ornith9bobl|feyospace|deepseek41obl|ollama|"") ;;
   *) echo "ENGINE must be one of: ${LC_MODEL_IDS[*]} ollama (got '$ENGINE')"; exit 1 ;;
 esac
 OL_PICK=""
