@@ -604,7 +604,16 @@ OL_MODELS=(
   "8|qwen3:30b|qwen3:30b|96|0|T-R|Qwen3 30B-A3B|Qwen3 MoE (3B active), 256K window. Near-frontier quality, runs well on CPU"
   "9|phi4:14b|phi4:14b|200|0|T--|Phi-4 14B|Microsoft: reasoning quality far above its size. Full attention, heavy KV"
   "10|qwen2.5:14b-instruct|qwen2.5:14b-instruct|192|0|T--|Qwen2.5 14B|Older but proven all-rounder with tool calling"
+  "-|robit/inkling-2-mini:orin-iq4-xs||32|256|TVR|Inkling 2 Mini (IQ4_XS)|TML looped MoE: bartowski IQ4_XS + vision. Run sandboxed"
 )
+# robit/inkling-2-mini:orin-iq4-xs (2026-11-27): Ollama build of Thinking Machines' Inkling 2 Mini (Apache-2.0):
+# bartowski's IQ4_XS language GGUF (14,387 MiB) + the BF16 vision projector (612 MiB); renderer/parser inkling2
+# (tools + thinking). Needs Ollama >= 0.40.18. The GGUF (arch inkling2_loop): 24 layers, layers 6-17 run 3x;
+# 4 global layers (5, 11, 17, 23) with 8 KV heads x (128 K + 128 V), 20 sliding-window layers (1024). Ollama's
+# per-pass caching isn't documented, so this assumes every pass keeps its own cache: 8 global passes x 4 KB =
+# 32 KB/token, 40 window passes x 1024 x 4 KB = 160 MB (256 MB with headroom). An upper bound: the fit is safe.
+# It ships PARAMETER num_ctx 8192; the pull step below overrides that with the context Summon sized.
+# Same model as the llama.cpp row inklingmini (that one has the DSpark draft and 1M context).
 # Hugging Face GGUF refs have no Ollama registry manifest: exact sizes in MiB from the HF file list (2026-11-17).
 declare -A HF_MB=(
   ["hf.co/bottlecapai/ThinkingCap-Qwen3.8-27B-GGUF:Q8_0"]=27701
@@ -1913,17 +1922,24 @@ install_ollama() {
   curl -fs --max-time 2 "http://127.0.0.1:$PORT" >/dev/null 2>&1 || {
     echo "Ollama didn't come up on $PORT after 60 s. Check: journalctl -u summon-ollama or screen -r ollama"; exit 1; }
 
-  # Pull selected models. Ones that don't fit at 128K get num_ctx 64K baked in (same name).
+  # Pull selected models, then bake the sized context into the ones that need it (same name): models that don't
+  # fit at 128K get 64K, and models that ship their own num_ctx (it overrides the server's 128K default, e.g.
+  # robit/inkling-2-mini's 8K) get the context Summon sized.
+  local want own
   for i in "${SEL[@]}"; do
-    OLLAMA_HOST=127.0.0.1:$PORT ollama pull "${REF[i]}"
-    if [ "${MCTX[i]}" != "$OL_CTX_MAX" ]; then
+    OLLAMA_HOST=127.0.0.1:$PORT ollama pull "${REF[i]}" || {
+      echo "Pulling ${REF[i]} failed. If Ollama says it needs a newer version, update it:"
+      echo "  curl -fsSL https://ollama.com/install.sh | sh     then rerun $0"; exit 1; }
+    want=$(( MCTX[i] ? MCTX[i] : OL_CTX_MIN ))
+    own=$(OLLAMA_HOST=127.0.0.1:$PORT ollama show --parameters "${REF[i]}" 2>/dev/null | awk '$1=="num_ctx" {print $2; exit}')
+    if [ "$want" != "$OL_CTX_MAX" ] || { [ -n "$own" ] && [ "$own" != "$want" ]; }; then
       if [[ ${REF[i]} == hf.co/* ]]; then
-        echo "${REF[i]}: fits only at 64K here - set num_ctx 65536 in the client instead"
+        echo "${REF[i]}: set num_ctx $want in the client (sized for this card)"
       else
-        printf 'FROM %s\nPARAMETER num_ctx %s\n' "${REF[i]}" $OL_CTX_MIN > /tmp/Modelfile.ctx
+        printf 'FROM %s\nPARAMETER num_ctx %s\n' "${REF[i]}" "$want" > /tmp/Modelfile.ctx
         OLLAMA_HOST=127.0.0.1:$PORT ollama create "${REF[i]}" -f /tmp/Modelfile.ctx
         rm -f /tmp/Modelfile.ctx
-        echo "${REF[i]}: context set to 64K"
+        echo "${REF[i]}: context set to $((want/1024))K${own:+ (it shipped with num_ctx $own)}"
       fi
     fi
   done
