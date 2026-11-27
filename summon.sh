@@ -1549,7 +1549,7 @@ install_llamacpp() {
   # Speed: every generated token reads all the weights plus the part of the cache in use (llama.cpp only attends
   # over used cells, padded to 256), so reserving 256K costs no speed until a conversation is that long.
   # Bigger weights are more precise and slower at every length. Default: 128K with the best weights that fit.
-  local DEF_CTX="" c q b s e kv tot ITEMS DEF_Q PICK
+  local DEF_CTX="" c q b s e kv ITEMS DEF_Q PICK
   [ -n "$(best_quant 131072)" ] && DEF_CTX=131072
   if [ -z "$DEF_CTX" ]; then
     for c in $(ctx_tiers); do [ -n "$(best_quant "$c")" ] && { DEF_CTX=$c; break; }; done
@@ -1725,7 +1725,7 @@ install_llamacpp() {
     if (( LC_DRAFT_PAD )); then DRAFT_FILE="${D_FILE%.gguf}.pad.gguf"; pad_draft "$FILE" "$D_FILE" "$D_SHA" "$DRAFT_FILE"; fi
   fi
   local OTHERS
-  OTHERS=$(ls "$DDIR/models" | grep -vxF -e "$FILE" "${PART_FILES[@]/#/-e}" -e "${LORA_FILE:-//}" -e "${TPL_FILE:-//}" -e "${DRAFT_SRC:-//}" -e "${DRAFT_FILE:-//}" || true)
+  OTHERS=$(for f in "$DDIR/models"/*; do [ -f "$f" ] || continue; basename "$f"; done | grep -vxF -e "$FILE" "${PART_FILES[@]/#/-e}" -e "${LORA_FILE:-//}" -e "${TPL_FILE:-//}" -e "${DRAFT_SRC:-//}" -e "${DRAFT_FILE:-//}" || true)
   [ -n "$OTHERS" ] && echo "Other model files in $DDIR/models (kept, switching back is instant): $OTHERS"
 
   # --- Start (or replace) the server ---
@@ -1882,7 +1882,7 @@ install_ollama() {
   for i in "${SEL[@]}"; do [ "${MCTX[i]}" = 0 ] && TOO_BIG+="${MNAME[i]} (~${GB[i]}GB @64K)\n"; done
   if [ -n "$TOO_BIG" ] && ! confirm_yesno \
       "Only $((FREE_MB/1024))GB VRAM. These will spill to CPU (slow):\n\n${TOO_BIG}\nPull them anyway? (No = skip them)"; then
-    KEEP=(); for i in "${SEL[@]}"; do [ "${MCTX[i]}" = 0 ] || KEEP+=($i); done; SEL=("${KEEP[@]}")
+    KEEP=(); for i in "${SEL[@]}"; do [ "${MCTX[i]}" = 0 ] || KEEP+=("$i"); done; SEL=("${KEEP[@]}")
   fi
   ask_port
 
