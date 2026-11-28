@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Inkling 2 Mini on Ollama** (`robit/inkling-2-mini:orin-iq4-xs`, community row 17, opt-in): bartowski's IQ4_XS language GGUF + the BF16 vision projector (15.0 GB), with Ollama's native `inkling2` renderer/parser for tool calls and thinking. Needs Ollama >= 0.40.18. Sized conservatively (every looped pass assumed to keep its own cache: 32 KB/token + 256 MB): ~20 GB at 128K, so it fits 24 GB cards; too big for 16 GB. The `inklingmini` llama.cpp row (DSpark draft, 1M context) stays the faster option.
+- **Fix: models that ship their own `num_ctx`** (Inkling's Ollama build bakes in 8K, which overrode Summon's 128K server default) now get the context Summon sized for the card. Failed Ollama pulls suggest updating Ollama instead of exiting silently.
+
 - **Inkling 2 Mini** (`inklingmini`, Thinking Machines Lab, Apache-2.0): the first open looped transformer — 26.4B MoE, 3.4B active but the middle 12 layers run 3x (~5.4B effective compute per token). ggml-org GGUFs (Q8_0, IQ4_NL); unsloth's DSpark drafter wired as a draft model (KV estimated, acceptance unmeasured). Vendor: SWE-bench Verified 79.2, TB 2.1 71.6, BrowseComp 79.0 — top of its weight class. 1M context; tiny KV (4 global layers, 16 KB/token + 84 MB sliding window). Card warnings honored: reasoning loops (cap output) and destructive-action risk (sandbox it).
 
 - **DaisyRose 27B** (`daisyrose`, RadixArk, Apache-2.0): Qwen3.8-27B post-trained with RL only on ~1,200 long-horizon agent tasks — vendor: Terminal-Bench 4.1 5.6 → 12.0, SWE Bench Pro v2 94.7. Official single-file GGUFs (Q8_0 down to Q2_K_XL); the GGUF header carries `nextn_predict_layers=1`, so the MTP layer ships in-file (draft wired, acceptance on the RL tune unmeasured). 256K context, 64 KB/token KV. Vision (mmproj) not loaded — text only.

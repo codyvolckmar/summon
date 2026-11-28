@@ -49,7 +49,7 @@ Piping a script into a shell gives it root. Read [summon.sh](summon.sh) first; i
 | **Ornith 1.5 9B OBLITERATED**: uncensored Ornith 9B (vendor MMLU -4pp), thinking off | llama.cpp | 256K, 8-bit weights | 256K, 8-bit weights |
 | **feyospace-s1 OBLITERATED**: uncensored ~28B tuned for cybersecurity (pentests, CTFs, vuln research; vendor WMDP-Cyber 63.8%). Isolate its tools | llama.cpp | 128K, Q4_K_M | 256K, 8-bit weights |
 | **DeepSeek V4.1 Flash OBLITERATED**: uncensored 748B MoE (refusals reduced, not removed; MMLU 83.6%), 2.66-bit GGUF, 237 GB download. Needs a 96 GB card + ~130 GB free RAM, or ~160 GB of VRAM across cards | llama.cpp | not offered | not offered |
-| **Ollama models**: Qwen3.8 27B, Qwen3.6 35B-A3B, Gemma 4 31B, K2 Horizon, Muse Glimmer… plus CPU-friendly picks (gpt-oss 20B, Qwen3 30B-A3B, Phi-4 14B, Qwen2.5 14B) for a RAM-only box | Ollama | Qwen3.8 27B at 64K | most at 128K, 8-bit |
+| **Ollama models**: Qwen3.8 27B, Qwen3.6 35B-A3B, Gemma 4 31B, K2 Horizon, Muse Glimmer… plus CPU-friendly picks (gpt-oss 20B, Qwen3 30B-A3B, Phi-4 14B, Qwen2.5 14B) for a RAM-only box; and an Ollama build of Inkling 2 Mini (IQ4_XS + vision, ~20 GB at 128K, needs Ollama 0.40.18+) | Ollama | Qwen3.8 27B at 64K | most at 128K, 8-bit |
 
 ## What should I rent?
 
